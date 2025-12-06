@@ -31,7 +31,7 @@
 | Component                                         | Description                                                                 |
 | ------------------------------------------------- | --------------------------------------------------------------------------- |
 | **Segment Anything Model (SAM – ViT-H)**          | โมเดล segmentation จาก Meta AI ใช้สำหรับแบ่งพื้นที่ในภาพตามจุดที่ผู้ใช้คลิก |
-| **Custom Damage Detection (optional/extendable)** | สามารถเพิ่มโมเดล CNN/Transformer เพื่อตรวจจับความเสียหายในอนาคต             |
+| **Custom Damage Detection (optional/extendable)** | สามารถเพิ่มโมเดล CNN/Transformer ได้เพื่อตรวจจับความเสียหายในอนาคต             |
 
 ### 📌 Python Libraries
 
