@@ -1,145 +1,108 @@
 🏠 AI Home Inspection System
 
-ระบบตรวจสอบบ้านด้วย AI – วัดพื้นที่, ประมาณราคาวัสดุ, และตรวจหารอยเสียหาย
+Automated Room Segmentation | Material Estimation | Damage Detection | Evaluation System
 
-โปรเจกต์นี้เป็นเว็บแอปพลิเคชันที่พัฒนาโดย Streamlit และใช้โมเดลจาก Segment Anything (SAM)
-เพื่อช่วยผู้ใช้งานทำการวิเคราะห์ภาพของห้องหรืออาคาร เช่น
-✔ ตีเส้นแบ่งวัตถุ (Segmentation)
-✔ ประมาณการวัสดุก่อสร้างที่ต้องใช้
-✔ ประเมินราคา
-✔ ตรวจหารอยแตก / คราบ / เชื้อรา
-✔ สร้างรายงานสรุปผล
+📌 1. ความเป็นมาและวัตถุประสงค์ของโปรเจกต์
+ปัจจุบันงานตรวจสอบบ้าน (Home Inspection) ยังทำโดยมนุษย์เป็นหลัก เช่น
+ตรวจสภาพผนัง พื้น เพดาน
+ประเมินพื้นที่สำหรับทาสี ปูกระเบื้อง
+ดูรอยแตกร้าว/ความเสียหาย
+คำนวณค่าใช้จ่ายซ่อมแซม
+สิ่งเหล่านี้ใช้เวลาและขึ้นกับความชำนาญของผู้ตรวจสอบ
+โปรเจกต์นี้จึงถูกพัฒนาเพื่อ:
+ใช้ AI ช่วยวิเคราะห์ภาพถ่ายห้อง
+แยกวัตถุในภาพด้วย Segment Anything Model (SAM)
+ประมาณพื้นที่จริงด้วย Pixel-to-Meter
+ประเมินวัสดุและค่าใช้จ่าย
+ตรวจสอบความเสียหายของผนังหรือพื้น
+ทำ Pixel-level Evaluation เทียบกับ Ground Truth
 
-🚀 Features
-1. 🎯 Object Segmentation
+📌 2. ฟีเจอร์หลักของระบบ
+✔ 1. Image Segmentation
+คลิกบนภาพเพื่อเลือกจุดที่ต้องการ segment
+ใช้ SAM เพื่อแยกวัตถุ เช่น ผนัง ประตู หน้าต่าง พื้น
+แสดง Mask, Overlay, Pixel Count, Coverage
 
-ผู้ใช้สามารถ คลิกบนภาพ เพื่อเลือกตำแหน่งที่ต้องการให้ SAM ทำการ Segment
+✔ 2. Material Estimation
+ใช้พื้นที่ของ Mask เพื่อคำนวณ:
+ปริมาณสี
+จำนวนกระเบื้อง
+พื้นไม้
+ค่าวัสดุรวมตามราคาใน Sidebar
+✔ 3. Damage Detection
+ตรวจรอยร้าว/คราบ/เสียหายบนผนังด้วย Algorithm (OpenCV/ML)
+✔ 4. Pixel-level Evaluation
+อัปโหลด Ground Truth mask
+ระบบปรับขนาดอัตโนมัติ
+คำนวณ Confusion Matrix + Accuracy + Precision + Recall + F1
+แสดง Error Map (TP/FP/FN) ชัดเจน
+Export รายงานเป็น JSON
 
-ระบบรองรับการเลือกหลายจุด
+📌 3. โครงสร้างการทำงานของระบบ (Pipeline)
+1. ผู้ใช้ Upload รูปภาพห้อง  
+2. ผู้ใช้คลิกบริเวณที่ต้องการ Segment  
+3. ระบบใช้ SAM สร้าง Mask  
+4. นำ Mask → คำนวณพื้นที่ (pixel → m²)  
+5. นำพื้นที่ → คำนวณวัสดุ & ราคา  
+6. (ออปชัน) อัปโหลด GT Mask → ประเมินผลลัพธ์  
+7. แสดงผล + อนุญาตให้ดาวน์โหลดรายงาน JSON  
 
-แสดงผลทั้ง Binary Mask, Overlay, และ Segmentation Metrics
+📌 4. Libraries และ Packages ที่ใช้
+| Library                 | ใช้ทำอะไร                                |
+| ----------------------- | ---------------------------------------- |
+| **streamlit**           | UI/Frontend สำหรับ web app               |
+| **numpy**               | ประมวลผลอาร์เรย์และ mask                 |
+| **Pillow (PIL)**        | โหลด/แปลง/จัดการภาพ                      |
+| **opencv-python (cv2)** | Image processing และงาน damage detection |
+| **matplotlib**          | Visualization ของ mask และ error map     |
+| **pandas**              | สร้าง confusion matrix                   |
+| **json**                | Export รายงานผล                          |
+| **BytesIO**             | บันทึกไฟล์ภาพให้ดาวน์โหลด                |
 
-สามารถดาวน์โหลด Mask ออกเป็น PNG ได้
+📌 5. โมเดลที่ใช้: SAM (Segment Anything Model)
+เวอร์ชัน: vit_h
+Checkpoint: sam_vit_h_4b8939.pth
+จุดเด่น:
+Segment อะไรก็ได้จาก point prompt
+แม่นยำสูง
+รองรับหลาย mask ต่อจุดเดียว
+📌 6. การวัดประสิทธิภาพระบบ Segmentation
+ระบบรองรับการอัปโหลด Ground Truth mask เพื่อคำนวณเมตริกต่าง ๆ
 
-2. 📏 Material Estimation
+✔ Confusion Matrix (Pixel-level)
+Terms	ความหมาย
+TP	Pixel ที่เป็นวัตถุ และทำนายถูก
+TN	Pixel ที่เป็นฉากหลัง และทำนายถูก
+FP	Pixel ที่ทำนายเป็นวัตถุ แต่จริง ๆ คือฉากหลัง
+FN	Pixel ที่เป็นวัตถุ แต่ทำนายพลาด
+✔ Metrics ที่คำนวณได้
 
-ระบบประมาณราคาวัสดุก่อสร้าง เช่น
+Accuracy = (TP + TN) / Total
+Precision = TP / (TP + FP)
+Recall (Sensitivity) = TP / (TP + FN)
+F1-score = 2PR / (P + R)
 
-สี
+✔ Error Map Visualization
+สีเขียว → TP
+สีแดง → FP
+สีเหลือง → FN
+สีเทา → TN
 
-กระเบื้อง
-
-ไม้ปูพื้น
-
-วอลเปเปอร์
-
-รองรับการคำนวณ:
-
-พื้นที่ใช้งาน (m²)
-
-ปริมาณวัสดุที่ต้องใช้
-
-การเผื่อของเสีย 10–15%
-
-ราคาที่ผู้ใช้กำหนดเอง
-
-3. 🔍 Damage Detection
-
-ตรวจสอบรอยเสียหายพื้นฐานที่อาจพบในบ้าน เช่น
-
-รอยแตก (Cracks)
-
-คราบ (Stains)
-
-เชื้อรา (Mold)
-
-สีลอก (Peeling)
-
-สนิม (Rust)
-
-การตรวจใช้เทคนิค Computer Vision แบบ Heuristic เช่น
-
-Edge Detection
-
-Thresholding
-
-Contour Analysis
-
-4. 📊 Full Inspection Report
-
-ระบบจะบันทึกข้อมูลจากแต่ละ Tab
-
-แสดงข้อมูลสรุปพื้นที่ / วัสดุ / ค่าใช้จ่าย / ความเสียหาย
-
-รองรับการ export ออกมาเก็บไว้ภายนอก (optional)
-
-📦 Technology Stack
-Component	Description
-Streamlit	ใช้สร้างเว็บ UI
-Segment Anything (SAM)	ใช้สร้างระบบ segmentation
-OpenCV	ใช้ตรวจวิเคราะห์ความเสียหาย
-NumPy	ประมวลผลภาพ
-Pillow (PIL)	จัดการไฟล์รูปภาพ
-Python 3.9+	ภาษาในการพัฒนาระบบ
-📁 Project Structure (โครงสร้างไฟล์)
+📌 7. โครงสร้างไฟล์ที่แนะนำ
 project/
-│── app.py                 # Main Streamlit app
-│── models/
-│     └── sam_vit_h_4b8939.pth   # SAM checkpoint
-│── README.md
-│── requirements.txt
+│ app.py
+│ README.md
+│ requirements.txt
+│
+└── models/
+    └── sam_vit_h_4b8939.pth
 
-🛠 Installation
-1. Clone project
-git clone <your-repo-url>
-cd project
-
-2. Install dependencies
-pip install -r requirements.txt
-
-3. Download SAM model
-
-ดาวน์โหลดไฟล์ sam_vit_h_4b8939.pth และวางในโฟลเดอร์ models/
-
-ดาวน์โหลดได้จาก:
-https://github.com/facebookresearch/segment-anything
-
-4. Run Streamlit
+📌 8. วิธีใช้งาน (Setup)
+1) ติดตั้งไลบรารี
+pip install streamlit numpy pillow opencv-python matplotlib pandas segment-anything streamlit-image-coordinates
+2) ดาวน์โหลดโมเดล SAM vit_h
+ดาวน์โหลดจาก Meta GitHub
+แล้ววางไว้ที่:
+models/sam_vit_h_4b8939.pth
+3) รันแอป
 streamlit run app.py
-
-⚙️ Key Configurations
-Sidebar Settings
-
-ประเภทห้อง
-
-ราคาวัสดุ
-
-ค่าคาลิเบรต Pixel → Meter
-
-ปุ่มรีเซ็ตข้อมูล
-
-ปุ่มโหลดโมเดล SAM
-
-SAM Model Loading
-sam = sam_model_registry["vit_h"](checkpoint=checkpoint_path)
-sam.to(device)
-
-🧠 How It Works (Flow การทำงาน)
-
-1.ผู้ใช้อัปโหลดภาพ
-
-2.ระบบแสดงตัวเลือกให้ผู้ใช้คลิกจุดสำหรับ segmentation
-
-3.ผู้ใช้กด “Run Segmentation” → SAM สร้าง masks
-
-4.ผู้ใช้เลือกวัสดุ → ระบบคำนวณราคา
-
-5.ผู้ใช้กดตรวจความเสียหาย → ระบบประมวลผลภาพ
-
-6.ผู้ใช้ไปที่ “Full Report” เพื่อดูข้อมูลสรุปทั้งหมด
-
-🧩 Future Improvements
-
-เพิ่มโมเดล Deep Learning สำหรับ Damage Detection จริง ๆ
-
-
