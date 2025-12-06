@@ -144,17 +144,6 @@ streamlit run app.py
 * 🟥 **Red = False Positive (เกินจริง)**
 * 🟨 **Yellow = False Negative (ขาดบางส่วน)**
 
----
-
-## 🧩 จุดเด่นของระบบนี้
-
-* ใช้ SAM segmentation ระดับ SOTA
-* มี UI แบบ interactive
-* ประเมินวัสดุได้ทันทีจาก area
-* รองรับการตรวจสอบความแม่นยำด้วย Ground Truth
-* สามารถ export รายงานได้
-
----
 
 ## 📌 สิ่งที่สามารถพัฒนาเพิ่มเติม
 
