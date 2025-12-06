@@ -9,6 +9,8 @@ from streamlit_image_coordinates import streamlit_image_coordinates
 import json
 from datetime import datetime
 from io import BytesIO
+import matplotlib.pyplot as plt
+import pandas as pd
 
 st.set_page_config(page_title="🏠 AI Home Inspection System", layout="wide")
 
@@ -296,6 +298,134 @@ else:
             """,
                 unsafe_allow_html=True,
             )
+
+            # --- NEW: Ground Truth upload + Pixel-level Evaluation ----------------
+            st.markdown("---")
+            st.subheader("🧾 Pixel-level Evaluation (Ground Truth vs Predicted)")
+
+            gt_file = st.file_uploader(
+                "อัปโหลด Ground Truth Mask (ไฟล์ภาพ binary ขาวดำ) — ใช้ไฟล์เดียวกับขนาดหรือจะให้ปรับขนาดให้ก็ได้",
+                type=["png", "jpg", "jpeg"],
+                key="gt_uploader",
+                help="ถ้า Ground Truth เป็น white=object, black=background จะใช้ได้ทันที. ถ้ามีขนาดต่างกัน ระบบจะปรับขนาดอัตโนมัติ (nearest)."
+            )
+
+            gt_bool = None
+            if gt_file is not None:
+                try:
+                    gt_img = Image.open(gt_file).convert("L")
+                    # Resize GT to mask size if needed
+                    mask_h, mask_w = mask_img.shape
+                    if gt_img.size != (mask_w, mask_h):
+                        gt_img = gt_img.resize((mask_w, mask_h), resample=Image.NEAREST)
+                    gt_arr = np.array(gt_img)
+                    # threshold to binary
+                    gt_bool = (gt_arr > 128)
+                    st.success("✅ Ground truth loaded and binarized.")
+                except Exception as e:
+                    st.error(f"❌ Error loading GT mask: {e}")
+                    gt_bool = None
+
+            if gt_bool is not None:
+                pred_bool = selected_mask
+                # ensure boolean shapes match
+                if pred_bool.shape != gt_bool.shape:
+                    st.error("❌ ขนาด GT และ Predicted ไม่ตรงกัน — ตรวจสอบไฟล์ภาพ")
+                else:
+                    # Compute TP, TN, FP, FN
+                    tp = int(np.logical_and(pred_bool, gt_bool).sum())
+                    tn = int(np.logical_and(~pred_bool, ~gt_bool).sum())
+                    fp = int(np.logical_and(pred_bool, ~gt_bool).sum())
+                    fn = int(np.logical_and(~pred_bool, gt_bool).sum())
+                    total = tp + tn + fp + fn
+
+                    # Metrics (handle zero-division)
+                    accuracy = (tp + tn) / total if total > 0 else 0.0
+                    precision = tp / (tp + fp) if (tp + fp) > 0 else 0.0
+                    recall = tp / (tp + fn) if (tp + fn) > 0 else 0.0
+                    f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0.0
+
+                    # Show confusion matrix nicely
+                    st.write("**Confusion Matrix (pixel counts)**")
+                    cm_df = pd.DataFrame(
+                        [[tn, fp], [fn, tp]],
+                        index=["Actual Negative", "Actual Positive"],
+                        columns=["Pred Negative", "Pred Positive"],
+                    )
+                    # rename columns/rows for clarity: we want TP/TN/FP/FN readable
+                    st.table(cm_df)
+
+                    # Show metrics
+                    col1, col2, col3, col4 = st.columns(4)
+                    col1.metric("TP", f"{tp:,}")
+                    col2.metric("FP", f"{fp:,}")
+                    col3.metric("FN", f"{fn:,}")
+                    col4.metric("TN", f"{tn:,}")
+
+                    st.markdown("---")
+                    col1, col2, col3, col4 = st.columns(4)
+                    col1.metric("Accuracy", f"{accuracy:.4f}")
+                    col2.metric("Precision", f"{precision:.4f}")
+                    col3.metric("Recall", f"{recall:.4f}")
+                    col4.metric("F1-score", f"{f1:.4f}")
+
+                    # Visual Comparison: Ground Truth | Predicted | Error Map
+                    st.markdown("**Visual Comparison**")
+                    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+                    # Ground Truth
+                    axes[0].imshow(gt_bool, cmap="gray")
+                    axes[0].set_title("Ground Truth")
+                    axes[0].axis("off")
+                    # Predicted
+                    axes[1].imshow(pred_bool, cmap="gray")
+                    axes[1].set_title("Predicted Mask")
+                    axes[1].axis("off")
+                    # Error Map (color-coded)
+                    # Create RGB image
+                    h, w = pred_bool.shape
+                    error_rgb = np.zeros((h, w, 3), dtype=np.uint8) + 127  # mid-gray background
+                    # correct (both True or both False) -> Green for correct positive, keep neutral for correct negative?
+                    correct_pos = np.logical_and(pred_bool, gt_bool)
+                    # For visualization we highlight:
+                    # True Positive -> Green
+                    error_rgb[correct_pos] = [0, 255, 0]  # green
+                    # False Positive -> Red
+                    fp_mask = np.logical_and(pred_bool, ~gt_bool)
+                    error_rgb[fp_mask] = [255, 0, 0]  # red
+                    # False Negative -> Yellow
+                    fn_mask = np.logical_and(~pred_bool, gt_bool)
+                    error_rgb[fn_mask] = [255, 255, 0]  # yellow
+                    axes[2].imshow(error_rgb)
+                    axes[2].set_title("Error Map (Green=TP, Red=FP, Yellow=FN)")
+                    axes[2].axis("off")
+
+                    st.pyplot(fig)
+
+                    # Save metrics & allow download
+                    metrics = {
+                        "date": datetime.now().isoformat(),
+                        "tp": tp,
+                        "tn": tn,
+                        "fp": fp,
+                        "fn": fn,
+                        "accuracy": accuracy,
+                        "precision": precision,
+                        "recall": recall,
+                        "f1_score": f1,
+                        "total_pixels": total,
+                        "mask_index": int(mask_idx),
+                    }
+                    metrics_json = json.dumps(metrics, ensure_ascii=False, indent=2).encode("utf-8")
+                    st.download_button(
+                        label="📥 Download Metrics (JSON)",
+                        data=metrics_json,
+                        file_name=f"segmentation_metrics_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json",
+                        mime="application/json",
+                        use_container_width=True,
+                    )
+
+            else:
+                st.info("⚠️ หากต้องการประเมินผลจริง ให้ upload Ground Truth mask ที่เป็นขาว-ดำ (white=object). ระบบจะปรับขนาดอัตโนมัติถ้าจำเป็น")
 
             # Export mask button (download)
             mask_pil = Image.fromarray(mask_img)
@@ -669,7 +799,7 @@ else:
                     mime="text/csv",
                     use_container_width=True,
                 )
-
+    
     # End of main flow
 
 # ---------------- End of app.py ------------------------------------------------
